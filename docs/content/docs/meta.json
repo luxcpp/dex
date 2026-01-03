@@ -1,0 +1,15 @@
+{
+  "title": "Lux DEX Documentation",
+  "pages": [
+    "index",
+    "installation",
+    "---Order Book---",
+    "orderbook/overview",
+    "orderbook/orders",
+    "orderbook/matching",
+    "---SDKs---",
+    "sdk/cpp",
+    "sdk/c",
+    "sdk/go"
+  ]
+}

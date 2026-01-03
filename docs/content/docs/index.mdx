@@ -1,0 +1,71 @@
+---
+title: Lux DEX
+description: High-performance C++17 order book and matching engine
+---
+
+# Lux DEX
+
+High-performance C++17 order book and matching engine for the Lux Network DEX.
+
+## Overview
+
+Lux DEX provides a blazing-fast Central Limit Order Book (CLOB) implementation optimized for high-frequency trading workloads. Key features include:
+
+- **Sub-microsecond latency** - Optimized for HFT workloads
+- **Price-time priority** - FIFO matching with configurable tie-breaking
+- **Lock-free data structures** - Minimal contention under high load
+- **Multi-asset support** - Handle thousands of trading pairs
+- **C/Go bindings** - Native integrations for other languages
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Lux DEX VM (Go)                          │
+│              D-Chain Virtual Machine                         │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+┌─────────────────────────────┴───────────────────────────────┐
+│                   lux-dex (this library)                     │
+│              Order Book, Matching Engine, SDKs               │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+    ┌───────┐           ┌──────────┐          ┌───────┐
+    │ C SDK │           │ C++ SDK  │          │Go SDK │
+    └───────┘           └──────────┘          └───────┘
+```
+
+## Quick Start
+
+```cpp
+#include <lux/orderbook.hpp>
+#include <lux/engine.hpp>
+
+lux::Engine engine;
+engine.add_order({
+    .side = lux::Side::Buy,
+    .price = 50000.00,
+    .quantity = 1.5,
+    .symbol = "BTC-USD"
+});
+```
+
+## Building
+
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+```
+
+## License
+
+BSD 3-Clause Ecosystem License - This software may be used freely for non-commercial purposes or on the Lux Network (mainnet, testnets, and descendant chains). Commercial use requires a license from Lux Partners Limited.
+
+## Links
+
+- [Installation Guide](/dex/docs/installation)
+- [Order Book Overview](/dex/docs/orderbook/overview)
+- [GitHub Repository](https://github.com/luxcpp/dex)

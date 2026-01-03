@@ -1,0 +1,67 @@
+---
+title: Installation
+description: How to build and install Lux DEX
+---
+
+# Installation
+
+## Requirements
+
+- C++17 compatible compiler (GCC 9+, Clang 10+, MSVC 2019+)
+- CMake 3.16+
+- Optional: Go 1.21+ (for Go bindings)
+
+## Building from Source
+
+```bash
+git clone https://github.com/luxcpp/dex.git
+cd dex
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+```
+
+## CMake Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `BUILD_SHARED_LIBS` | OFF | Build shared libraries |
+| `DEX_BUILD_TESTS` | ON | Build unit tests |
+| `DEX_BUILD_EXAMPLES` | ON | Build example programs |
+| `DEX_BUILD_C_SDK` | ON | Build C bindings |
+| `DEX_BUILD_GO_SDK` | ON | Build Go bindings |
+
+## Installing
+
+```bash
+sudo make install
+```
+
+This installs:
+- Headers to `/usr/local/include/lux/`
+- Libraries to `/usr/local/lib/`
+- CMake config to `/usr/local/lib/cmake/LuxDex/`
+
+## Using with CMake
+
+```cmake
+find_package(LuxDex REQUIRED)
+target_link_libraries(myapp PRIVATE LuxDex::orderbook)
+```
+
+## Go Bindings
+
+```bash
+go get github.com/luxcpp/dex/bindings/go
+```
+
+```go
+import "github.com/luxcpp/dex/bindings/go/orderbook"
+
+ob := orderbook.New("BTC-USD")
+ob.AddOrder(orderbook.Order{
+    Side:     orderbook.Buy,
+    Price:    50000.00,
+    Quantity: 1.5,
+})
+```
