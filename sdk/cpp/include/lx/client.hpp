@@ -2,8 +2,8 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#ifndef LXDEX_CLIENT_HPP
-#define LXDEX_CLIENT_HPP
+#ifndef LX_CLIENT_HPP
+#define LX_CLIENT_HPP
 
 #include "types.hpp"
 #include "orderbook.hpp"
@@ -13,7 +13,7 @@
 #include <atomic>
 #include <chrono>
 
-namespace lxdex {
+namespace lx {
 
 /// Connection state
 enum class ConnectionState {
@@ -281,6 +281,6 @@ inline std::unique_ptr<Client> make_client(ClientConfig config = {}) {
     return std::make_unique<Client>(std::move(config));
 }
 
-} // namespace lxdex
+} // namespace lx
 
-#endif // LXDEX_CLIENT_HPP
+#endif // LX_CLIENT_HPP

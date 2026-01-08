@@ -3,7 +3,7 @@
  * Minimal JSON parser for protocol messages.
  */
 
-#include "lxdex.h"
+#include "lx.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -455,7 +455,7 @@ static void jb_append_bool(json_builder_t *jb, bool b) {
  */
 
 /* Build authentication message */
-char *lxdex_json_auth(const char *api_key, const char *api_secret, const char *request_id) {
+char *lx_json_auth(const char *api_key, const char *api_secret, const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -473,7 +473,7 @@ char *lxdex_json_auth(const char *api_key, const char *api_secret, const char *r
 }
 
 /* Build place_order message */
-char *lxdex_json_place_order(const lxdex_order_t *order, const char *request_id) {
+char *lx_json_place_order(const lx_order_t *order, const char *request_id) {
     if (!order) return NULL;
 
     json_builder_t jb;
@@ -485,15 +485,15 @@ char *lxdex_json_place_order(const lxdex_order_t *order, const char *request_id)
     jb_append_string(&jb, order->symbol);
 
     jb_append(&jb, ",\"side\":");
-    jb_append_string(&jb, order->side == LXDEX_SIDE_BUY ? "buy" : "sell");
+    jb_append_string(&jb, order->side == LX_SIDE_BUY ? "buy" : "sell");
 
     const char *type_str = "limit";
     switch (order->type) {
-        case LXDEX_ORDER_MARKET: type_str = "market"; break;
-        case LXDEX_ORDER_STOP: type_str = "stop"; break;
-        case LXDEX_ORDER_STOP_LIMIT: type_str = "stop_limit"; break;
-        case LXDEX_ORDER_ICEBERG: type_str = "iceberg"; break;
-        case LXDEX_ORDER_PEG: type_str = "peg"; break;
+        case LX_ORDER_MARKET: type_str = "market"; break;
+        case LX_ORDER_STOP: type_str = "stop"; break;
+        case LX_ORDER_STOP_LIMIT: type_str = "stop_limit"; break;
+        case LX_ORDER_ICEBERG: type_str = "iceberg"; break;
+        case LX_ORDER_PEG: type_str = "peg"; break;
         default: break;
     }
     jb_append(&jb, ",\"type\":");
@@ -512,9 +512,9 @@ char *lxdex_json_place_order(const lxdex_order_t *order, const char *request_id)
 
     const char *tif_str = "GTC";
     switch (order->time_in_force) {
-        case LXDEX_TIF_IOC: tif_str = "IOC"; break;
-        case LXDEX_TIF_FOK: tif_str = "FOK"; break;
-        case LXDEX_TIF_DAY: tif_str = "DAY"; break;
+        case LX_TIF_IOC: tif_str = "IOC"; break;
+        case LX_TIF_FOK: tif_str = "FOK"; break;
+        case LX_TIF_DAY: tif_str = "DAY"; break;
         default: break;
     }
     jb_append(&jb, ",\"timeInForce\":");
@@ -541,7 +541,7 @@ char *lxdex_json_place_order(const lxdex_order_t *order, const char *request_id)
 }
 
 /* Build cancel_order message */
-char *lxdex_json_cancel_order(uint64_t order_id, const char *request_id) {
+char *lx_json_cancel_order(uint64_t order_id, const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -557,7 +557,7 @@ char *lxdex_json_cancel_order(uint64_t order_id, const char *request_id) {
 }
 
 /* Build subscribe message */
-char *lxdex_json_subscribe(const char *channel, const char *request_id) {
+char *lx_json_subscribe(const char *channel, const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -573,7 +573,7 @@ char *lxdex_json_subscribe(const char *channel, const char *request_id) {
 }
 
 /* Build unsubscribe message */
-char *lxdex_json_unsubscribe(const char *channel, const char *request_id) {
+char *lx_json_unsubscribe(const char *channel, const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -589,7 +589,7 @@ char *lxdex_json_unsubscribe(const char *channel, const char *request_id) {
 }
 
 /* Build ping message */
-char *lxdex_json_ping(const char *request_id) {
+char *lx_json_ping(const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -604,7 +604,7 @@ char *lxdex_json_ping(const char *request_id) {
 }
 
 /* Build get_balances message */
-char *lxdex_json_get_balances(const char *request_id) {
+char *lx_json_get_balances(const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -619,7 +619,7 @@ char *lxdex_json_get_balances(const char *request_id) {
 }
 
 /* Build get_positions message */
-char *lxdex_json_get_positions(const char *request_id) {
+char *lx_json_get_positions(const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -634,7 +634,7 @@ char *lxdex_json_get_positions(const char *request_id) {
 }
 
 /* Build get_orders message */
-char *lxdex_json_get_orders(const char *request_id) {
+char *lx_json_get_orders(const char *request_id) {
     json_builder_t jb;
     jb_init(&jb);
 
@@ -653,7 +653,7 @@ char *lxdex_json_get_orders(const char *request_id) {
  */
 
 /* Parse message type */
-const char *lxdex_json_parse_type(const char *json) {
+const char *lx_json_parse_type(const char *json) {
     const char *p = json;
     json_value_t *root = json_parse_value(&p);
     if (!root) return NULL;
@@ -673,12 +673,12 @@ const char *lxdex_json_parse_type(const char *json) {
 }
 
 /* Parse order from JSON */
-lxdex_error_t lxdex_json_parse_order(const char *json, lxdex_order_t *order) {
-    if (!json || !order) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_json_parse_order(const char *json, lx_order_t *order) {
+    if (!json || !order) return LX_ERR_INVALID_ARG;
 
     const char *p = json;
     json_value_t *root = json_parse_value(&p);
-    if (!root) return LXDEX_ERR_PARSE;
+    if (!root) return LX_ERR_PARSE;
 
     /* Get order data - could be at root or in "data.order" */
     json_value_t *data = json_get_object(root, "data");
@@ -694,13 +694,13 @@ lxdex_error_t lxdex_json_parse_order(const char *json, lxdex_order_t *order) {
 
     const char *sym = json_get_string(ord, "symbol");
     if (!sym) sym = json_get_string(ord, "Symbol");
-    if (sym) strncpy(order->symbol, sym, LXDEX_SYMBOL_LEN - 1);
+    if (sym) strncpy(order->symbol, sym, LX_SYMBOL_LEN - 1);
 
     const char *side = json_get_string(ord, "side");
     if (!side) side = json_get_string(ord, "Side");
     if (side) {
         order->side = (strcmp(side, "sell") == 0 || strcmp(side, "SELL") == 0)
-            ? LXDEX_SIDE_SELL : LXDEX_SIDE_BUY;
+            ? LX_SIDE_SELL : LX_SIDE_BUY;
     }
 
     order->price = json_get_number(ord, "price", 0);
@@ -714,11 +714,11 @@ lxdex_error_t lxdex_json_parse_order(const char *json, lxdex_order_t *order) {
 
     const char *status = json_get_string(ord, "status");
     if (status) {
-        if (strcmp(status, "open") == 0) order->status = LXDEX_STATUS_OPEN;
-        else if (strcmp(status, "partial") == 0) order->status = LXDEX_STATUS_PARTIAL;
-        else if (strcmp(status, "filled") == 0) order->status = LXDEX_STATUS_FILLED;
-        else if (strcmp(status, "cancelled") == 0) order->status = LXDEX_STATUS_CANCELLED;
-        else if (strcmp(status, "rejected") == 0) order->status = LXDEX_STATUS_REJECTED;
+        if (strcmp(status, "open") == 0) order->status = LX_STATUS_OPEN;
+        else if (strcmp(status, "partial") == 0) order->status = LX_STATUS_PARTIAL;
+        else if (strcmp(status, "filled") == 0) order->status = LX_STATUS_FILLED;
+        else if (strcmp(status, "cancelled") == 0) order->status = LX_STATUS_CANCELLED;
+        else if (strcmp(status, "rejected") == 0) order->status = LX_STATUS_REJECTED;
     }
 
     order->timestamp = (int64_t)json_get_number(ord, "timestamp", 0);
@@ -726,16 +726,16 @@ lxdex_error_t lxdex_json_parse_order(const char *json, lxdex_order_t *order) {
     order->reduce_only = json_get_bool(ord, "reduceOnly", false);
 
     json_free(root);
-    return LXDEX_OK;
+    return LX_OK;
 }
 
 /* Parse trade from JSON */
-lxdex_error_t lxdex_json_parse_trade(const char *json, lxdex_trade_t *trade) {
-    if (!json || !trade) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_json_parse_trade(const char *json, lx_trade_t *trade) {
+    if (!json || !trade) return LX_ERR_INVALID_ARG;
 
     const char *p = json;
     json_value_t *root = json_parse_value(&p);
-    if (!root) return LXDEX_ERR_PARSE;
+    if (!root) return LX_ERR_PARSE;
 
     json_value_t *data = json_get_object(root, "data");
     json_value_t *t = data ? data : root;
@@ -745,45 +745,45 @@ lxdex_error_t lxdex_json_parse_trade(const char *json, lxdex_trade_t *trade) {
     trade->trade_id = (uint64_t)json_get_number(t, "tradeId", 0);
 
     const char *sym = json_get_string(t, "symbol");
-    if (sym) strncpy(trade->symbol, sym, LXDEX_SYMBOL_LEN - 1);
+    if (sym) strncpy(trade->symbol, sym, LX_SYMBOL_LEN - 1);
 
     trade->price = json_get_number(t, "price", 0);
     trade->size = json_get_number(t, "size", 0);
 
     const char *side = json_get_string(t, "side");
     if (side) {
-        trade->side = (strcmp(side, "sell") == 0) ? LXDEX_SIDE_SELL : LXDEX_SIDE_BUY;
+        trade->side = (strcmp(side, "sell") == 0) ? LX_SIDE_SELL : LX_SIDE_BUY;
     }
 
     trade->buy_order_id = (uint64_t)json_get_number(t, "buyOrderId", 0);
     trade->sell_order_id = (uint64_t)json_get_number(t, "sellOrderId", 0);
 
     const char *buyer = json_get_string(t, "buyerId");
-    if (buyer) strncpy(trade->buyer_id, buyer, LXDEX_USER_ID_LEN - 1);
+    if (buyer) strncpy(trade->buyer_id, buyer, LX_USER_ID_LEN - 1);
 
     const char *seller = json_get_string(t, "sellerId");
-    if (seller) strncpy(trade->seller_id, seller, LXDEX_USER_ID_LEN - 1);
+    if (seller) strncpy(trade->seller_id, seller, LX_USER_ID_LEN - 1);
 
     trade->timestamp = (int64_t)json_get_number(t, "timestamp", 0);
 
     json_free(root);
-    return LXDEX_OK;
+    return LX_OK;
 }
 
 /* Parse orderbook from JSON */
-lxdex_error_t lxdex_json_parse_orderbook(const char *json, lxdex_orderbook_t *book) {
-    if (!json || !book) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_json_parse_orderbook(const char *json, lx_orderbook_t *book) {
+    if (!json || !book) return LX_ERR_INVALID_ARG;
 
     const char *p = json;
     json_value_t *root = json_parse_value(&p);
-    if (!root) return LXDEX_ERR_PARSE;
+    if (!root) return LX_ERR_PARSE;
 
     json_value_t *data = json_get_object(root, "data");
     json_value_t *b = data ? data : root;
 
     const char *sym = json_get_string(b, "symbol");
     if (!sym) sym = json_get_string(b, "Symbol");
-    if (sym) strncpy(book->symbol, sym, LXDEX_SYMBOL_LEN - 1);
+    if (sym) strncpy(book->symbol, sym, LX_SYMBOL_LEN - 1);
 
     book->timestamp = (int64_t)json_get_number(b, "timestamp", 0);
     if (book->timestamp == 0) book->timestamp = (int64_t)json_get_number(b, "Timestamp", 0);
@@ -794,11 +794,11 @@ lxdex_error_t lxdex_json_parse_orderbook(const char *json, lxdex_orderbook_t *bo
     if (bids) {
         size_t count = bids->data.array.count;
         if (count > book->bids_capacity) {
-            lxdex_price_level_t *new_bids = realloc(book->bids,
-                sizeof(lxdex_price_level_t) * count);
+            lx_price_level_t *new_bids = realloc(book->bids,
+                sizeof(lx_price_level_t) * count);
             if (!new_bids) {
                 json_free(root);
-                return LXDEX_ERR_NO_MEMORY;
+                return LX_ERR_NO_MEMORY;
             }
             book->bids = new_bids;
             book->bids_capacity = count;
@@ -823,11 +823,11 @@ lxdex_error_t lxdex_json_parse_orderbook(const char *json, lxdex_orderbook_t *bo
     if (asks) {
         size_t count = asks->data.array.count;
         if (count > book->asks_capacity) {
-            lxdex_price_level_t *new_asks = realloc(book->asks,
-                sizeof(lxdex_price_level_t) * count);
+            lx_price_level_t *new_asks = realloc(book->asks,
+                sizeof(lx_price_level_t) * count);
             if (!new_asks) {
                 json_free(root);
-                return LXDEX_ERR_NO_MEMORY;
+                return LX_ERR_NO_MEMORY;
             }
             book->asks = new_asks;
             book->asks_capacity = count;
@@ -847,16 +847,16 @@ lxdex_error_t lxdex_json_parse_orderbook(const char *json, lxdex_orderbook_t *bo
     }
 
     json_free(root);
-    return LXDEX_OK;
+    return LX_OK;
 }
 
 /* Parse error from JSON */
-lxdex_error_t lxdex_json_parse_error(const char *json, char *msg_out, size_t msg_len) {
-    if (!json) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_json_parse_error(const char *json, char *msg_out, size_t msg_len) {
+    if (!json) return LX_ERR_INVALID_ARG;
 
     const char *p = json;
     json_value_t *root = json_parse_value(&p);
-    if (!root) return LXDEX_ERR_PARSE;
+    if (!root) return LX_ERR_PARSE;
 
     const char *err = json_get_string(root, "error");
     if (err && msg_out) {
@@ -865,5 +865,5 @@ lxdex_error_t lxdex_json_parse_error(const char *json, char *msg_out, size_t msg
     }
 
     json_free(root);
-    return err ? LXDEX_OK : LXDEX_ERR_PARSE;
+    return err ? LX_OK : LX_ERR_PARSE;
 }

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # Allow older cmake_minimum_required in fetched projects
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum policy version for compatibility")
 
-project(lxdex VERSION 1.0.0 LANGUAGES CXX)
+project(lx VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,8 +11,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Options
-option(LXDEX_BUILD_EXAMPLES "Build example applications" ON)
-option(LXDEX_BUILD_TESTS "Build tests" OFF)
+option(LX_BUILD_EXAMPLES "Build example applications" ON)
+option(LX_BUILD_TESTS "Build tests" OFF)
 
 # Find dependencies
 find_package(Threads REQUIRED)
@@ -45,12 +45,12 @@ FetchContent_Declare(
 FetchContent_Populate(asio)
 
 # Library target
-add_library(lxdex
+add_library(lx
     src/client.cpp
     src/orderbook.cpp
 )
 
-target_include_directories(lxdex
+target_include_directories(lx
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -59,14 +59,14 @@ target_include_directories(lxdex
         ${asio_SOURCE_DIR}/asio/include
 )
 
-target_link_libraries(lxdex
+target_link_libraries(lx
     PUBLIC
         nlohmann_json::nlohmann_json
     PRIVATE
         Threads::Threads
 )
 
-target_compile_definitions(lxdex
+target_compile_definitions(lx
     PRIVATE
         ASIO_STANDALONE
         _WEBSOCKETPP_CPP11_STL_
@@ -74,23 +74,23 @@ target_compile_definitions(lxdex
 
 # Platform-specific settings
 if(APPLE)
-    target_compile_definitions(lxdex PRIVATE _DARWIN_C_SOURCE)
+    target_compile_definitions(lx PRIVATE _DARWIN_C_SOURCE)
 endif()
 
 if(WIN32)
-    target_link_libraries(lxdex PRIVATE ws2_32)
+    target_link_libraries(lx PRIVATE ws2_32)
 endif()
 
 # Examples
-if(LXDEX_BUILD_EXAMPLES)
-    add_executable(lxdex_basic examples/basic.cpp)
-    target_link_libraries(lxdex_basic PRIVATE lxdex)
-    target_include_directories(lxdex_basic
+if(LX_BUILD_EXAMPLES)
+    add_executable(lx_basic examples/basic.cpp)
+    target_link_libraries(lx_basic PRIVATE lx)
+    target_include_directories(lx_basic
         PRIVATE
             ${websocketpp_SOURCE_DIR}
             ${asio_SOURCE_DIR}/asio/include
     )
-    target_compile_definitions(lxdex_basic
+    target_compile_definitions(lx_basic
         PRIVATE
             ASIO_STANDALONE
             _WEBSOCKETPP_CPP11_STL_
@@ -98,7 +98,7 @@ if(LXDEX_BUILD_EXAMPLES)
 endif()
 
 # Install
-install(TARGETS lxdex
+install(TARGETS lx
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin

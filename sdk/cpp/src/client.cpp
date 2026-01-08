@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#include "lxdex/client.hpp"
+#include "lx/client.hpp"
 
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
@@ -14,7 +14,7 @@
 #include <sstream>
 #include <iomanip>
 
-namespace lxdex {
+namespace lx {
 
 using WsClient = websocketpp::client<websocketpp::config::asio_client>;
 using ConnectionHdl = websocketpp::connection_hdl;
@@ -991,4 +991,4 @@ std::string Client::generate_client_id() {
     return Impl::generate_client_id();
 }
 
-} // namespace lxdex
+} // namespace lx

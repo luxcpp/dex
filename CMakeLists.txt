@@ -38,6 +38,12 @@ set(LUXDEX_SOURCES
     src/orderbook.cpp
     src/matching.cpp
     src/engine.cpp
+    src/oracle.cpp
+    src/book.cpp
+    src/pool.cpp
+    src/vault.cpp
+    src/feed.cpp
+    src/lx.cpp
 )
 
 # Header files (for IDE integration)
@@ -46,6 +52,13 @@ set(LUXDEX_HEADERS
     include/lux/trade.hpp
     include/lux/orderbook.hpp
     include/lux/engine.hpp
+    include/lux/oracle.hpp
+    include/lux/types.hpp
+    include/lux/book.hpp
+    include/lux/pool.hpp
+    include/lux/vault.hpp
+    include/lux/feed.hpp
+    include/lux/lx.hpp
 )
 
 # Shared library
@@ -105,6 +118,23 @@ set_target_properties(luxdex_c PROPERTIES
 # C API header generation directory
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bindings/c)
 
+# Full C API for complete LX stack (Pool, Book, Vault, Oracle, Feed)
+add_library(lx_full_c SHARED
+    ${LUXDEX_SOURCES}
+    bindings/c/lx_full_c.cpp
+)
+target_include_directories(lx_full_c PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/bindings/c>
+    $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(lx_full_c PRIVATE Threads::Threads)
+set_target_properties(lx_full_c PROPERTIES
+    C_VISIBILITY_PRESET default
+    CXX_VISIBILITY_PRESET default
+    VISIBILITY_INLINES_HIDDEN OFF
+)
+
 # Test executable
 option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
@@ -130,7 +160,7 @@ if(BUILD_BENCHMARKS)
 endif()
 
 # Install targets
-install(TARGETS luxdex luxdex_static luxdex_c
+install(TARGETS luxdex luxdex_static luxdex_c lx_full_c
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin

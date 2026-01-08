@@ -3,7 +3,7 @@
  * Local orderbook management and helper functions.
  */
 
-#include "lxdex.h"
+#include "lx.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -12,46 +12,46 @@
  * Order utilities
  */
 
-void lxdex_order_init(lxdex_order_t *order) {
+void lx_order_init(lx_order_t *order) {
     if (!order) return;
     memset(order, 0, sizeof(*order));
-    order->type = LXDEX_ORDER_LIMIT;
-    order->side = LXDEX_SIDE_BUY;
-    order->time_in_force = LXDEX_TIF_GTC;
+    order->type = LX_ORDER_LIMIT;
+    order->side = LX_SIDE_BUY;
+    order->time_in_force = LX_TIF_GTC;
 }
 
-void lxdex_order_limit(lxdex_order_t *order, const char *symbol,
-                       lxdex_side_t side, double price, double size) {
+void lx_order_limit(lx_order_t *order, const char *symbol,
+                    lx_side_t side, double price, double size) {
     if (!order || !symbol) return;
 
-    lxdex_order_init(order);
-    strncpy(order->symbol, symbol, LXDEX_SYMBOL_LEN - 1);
-    order->symbol[LXDEX_SYMBOL_LEN - 1] = '\0';
-    order->type = LXDEX_ORDER_LIMIT;
+    lx_order_init(order);
+    strncpy(order->symbol, symbol, LX_SYMBOL_LEN - 1);
+    order->symbol[LX_SYMBOL_LEN - 1] = '\0';
+    order->type = LX_ORDER_LIMIT;
     order->side = side;
     order->price = price;
     order->size = size;
 }
 
-void lxdex_order_market(lxdex_order_t *order, const char *symbol,
-                        lxdex_side_t side, double size) {
+void lx_order_market(lx_order_t *order, const char *symbol,
+                     lx_side_t side, double size) {
     if (!order || !symbol) return;
 
-    lxdex_order_init(order);
-    strncpy(order->symbol, symbol, LXDEX_SYMBOL_LEN - 1);
-    order->symbol[LXDEX_SYMBOL_LEN - 1] = '\0';
-    order->type = LXDEX_ORDER_MARKET;
+    lx_order_init(order);
+    strncpy(order->symbol, symbol, LX_SYMBOL_LEN - 1);
+    order->symbol[LX_SYMBOL_LEN - 1] = '\0';
+    order->type = LX_ORDER_MARKET;
     order->side = side;
     order->size = size;
-    order->time_in_force = LXDEX_TIF_IOC; /* Market orders are IOC by default */
+    order->time_in_force = LX_TIF_IOC; /* Market orders are IOC by default */
 }
 
 /*
  * Orderbook utilities
  */
 
-lxdex_error_t lxdex_orderbook_init(lxdex_orderbook_t *book, size_t initial_capacity) {
-    if (!book) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_orderbook_init(lx_orderbook_t *book, size_t initial_capacity) {
+    if (!book) return LX_ERR_INVALID_ARG;
 
     memset(book, 0, sizeof(*book));
 
@@ -59,22 +59,22 @@ lxdex_error_t lxdex_orderbook_init(lxdex_orderbook_t *book, size_t initial_capac
         initial_capacity = 20; /* Default depth */
     }
 
-    book->bids = calloc(initial_capacity, sizeof(lxdex_price_level_t));
-    if (!book->bids) return LXDEX_ERR_NO_MEMORY;
+    book->bids = calloc(initial_capacity, sizeof(lx_price_level_t));
+    if (!book->bids) return LX_ERR_NO_MEMORY;
     book->bids_capacity = initial_capacity;
 
-    book->asks = calloc(initial_capacity, sizeof(lxdex_price_level_t));
+    book->asks = calloc(initial_capacity, sizeof(lx_price_level_t));
     if (!book->asks) {
         free(book->bids);
         book->bids = NULL;
-        return LXDEX_ERR_NO_MEMORY;
+        return LX_ERR_NO_MEMORY;
     }
     book->asks_capacity = initial_capacity;
 
-    return LXDEX_OK;
+    return LX_OK;
 }
 
-void lxdex_orderbook_free(lxdex_orderbook_t *book) {
+void lx_orderbook_free(lx_orderbook_t *book) {
     if (!book) return;
 
     free(book->bids);
@@ -88,19 +88,19 @@ void lxdex_orderbook_free(lxdex_orderbook_t *book) {
     book->asks_capacity = 0;
 }
 
-double lxdex_orderbook_best_bid(const lxdex_orderbook_t *book) {
+double lx_orderbook_best_bid(const lx_orderbook_t *book) {
     if (!book || book->bids_count == 0) return 0.0;
     return book->bids[0].price;
 }
 
-double lxdex_orderbook_best_ask(const lxdex_orderbook_t *book) {
+double lx_orderbook_best_ask(const lx_orderbook_t *book) {
     if (!book || book->asks_count == 0) return 0.0;
     return book->asks[0].price;
 }
 
-double lxdex_orderbook_spread(const lxdex_orderbook_t *book) {
-    double bid = lxdex_orderbook_best_bid(book);
-    double ask = lxdex_orderbook_best_ask(book);
+double lx_orderbook_spread(const lx_orderbook_t *book) {
+    double bid = lx_orderbook_best_bid(book);
+    double ask = lx_orderbook_best_ask(book);
 
     if (bid > 0.0 && ask > 0.0) {
         return ask - bid;
@@ -108,9 +108,9 @@ double lxdex_orderbook_spread(const lxdex_orderbook_t *book) {
     return 0.0;
 }
 
-double lxdex_orderbook_mid(const lxdex_orderbook_t *book) {
-    double bid = lxdex_orderbook_best_bid(book);
-    double ask = lxdex_orderbook_best_ask(book);
+double lx_orderbook_mid(const lx_orderbook_t *book) {
+    double bid = lx_orderbook_best_bid(book);
+    double ask = lx_orderbook_best_ask(book);
 
     if (bid > 0.0 && ask > 0.0) {
         return (bid + ask) / 2.0;
@@ -123,7 +123,7 @@ double lxdex_orderbook_mid(const lxdex_orderbook_t *book) {
  */
 
 /* Binary search for price level (bids sorted descending, asks sorted ascending) */
-static size_t find_bid_level(const lxdex_orderbook_t *book, double price) {
+static size_t find_bid_level(const lx_orderbook_t *book, double price) {
     if (book->bids_count == 0) return 0;
 
     size_t lo = 0;
@@ -140,7 +140,7 @@ static size_t find_bid_level(const lxdex_orderbook_t *book, double price) {
     return lo;
 }
 
-static size_t find_ask_level(const lxdex_orderbook_t *book, double price) {
+static size_t find_ask_level(const lx_orderbook_t *book, double price) {
     if (book->asks_count == 0) return 0;
 
     size_t lo = 0;
@@ -158,9 +158,9 @@ static size_t find_ask_level(const lxdex_orderbook_t *book, double price) {
 }
 
 /* Update a price level (insert/update/delete) */
-lxdex_error_t lxdex_orderbook_update_bid(lxdex_orderbook_t *book,
-                                          double price, double size, int count) {
-    if (!book) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_orderbook_update_bid(lx_orderbook_t *book,
+                                   double price, double size, int count) {
+    if (!book) return LX_ERR_INVALID_ARG;
 
     size_t idx = find_bid_level(book, price);
 
@@ -169,46 +169,46 @@ lxdex_error_t lxdex_orderbook_update_bid(lxdex_orderbook_t *book,
         if (size <= 0.0) {
             /* Delete level */
             memmove(&book->bids[idx], &book->bids[idx + 1],
-                (book->bids_count - idx - 1) * sizeof(lxdex_price_level_t));
+                (book->bids_count - idx - 1) * sizeof(lx_price_level_t));
             book->bids_count--;
         } else {
             /* Update level */
             book->bids[idx].size = size;
             book->bids[idx].count = count;
         }
-        return LXDEX_OK;
+        return LX_OK;
     }
 
     /* Insert new level */
     if (size <= 0.0) {
-        return LXDEX_OK; /* Nothing to insert */
+        return LX_OK; /* Nothing to insert */
     }
 
     /* Expand if needed */
     if (book->bids_count >= book->bids_capacity) {
         size_t new_cap = book->bids_capacity * 2;
-        lxdex_price_level_t *new_bids = realloc(book->bids,
-            sizeof(lxdex_price_level_t) * new_cap);
-        if (!new_bids) return LXDEX_ERR_NO_MEMORY;
+        lx_price_level_t *new_bids = realloc(book->bids,
+            sizeof(lx_price_level_t) * new_cap);
+        if (!new_bids) return LX_ERR_NO_MEMORY;
         book->bids = new_bids;
         book->bids_capacity = new_cap;
     }
 
     /* Make room and insert */
     memmove(&book->bids[idx + 1], &book->bids[idx],
-        (book->bids_count - idx) * sizeof(lxdex_price_level_t));
+        (book->bids_count - idx) * sizeof(lx_price_level_t));
 
     book->bids[idx].price = price;
     book->bids[idx].size = size;
     book->bids[idx].count = count;
     book->bids_count++;
 
-    return LXDEX_OK;
+    return LX_OK;
 }
 
-lxdex_error_t lxdex_orderbook_update_ask(lxdex_orderbook_t *book,
-                                          double price, double size, int count) {
-    if (!book) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_orderbook_update_ask(lx_orderbook_t *book,
+                                   double price, double size, int count) {
+    if (!book) return LX_ERR_INVALID_ARG;
 
     size_t idx = find_ask_level(book, price);
 
@@ -217,52 +217,52 @@ lxdex_error_t lxdex_orderbook_update_ask(lxdex_orderbook_t *book,
         if (size <= 0.0) {
             /* Delete level */
             memmove(&book->asks[idx], &book->asks[idx + 1],
-                (book->asks_count - idx - 1) * sizeof(lxdex_price_level_t));
+                (book->asks_count - idx - 1) * sizeof(lx_price_level_t));
             book->asks_count--;
         } else {
             /* Update level */
             book->asks[idx].size = size;
             book->asks[idx].count = count;
         }
-        return LXDEX_OK;
+        return LX_OK;
     }
 
     /* Insert new level */
     if (size <= 0.0) {
-        return LXDEX_OK; /* Nothing to insert */
+        return LX_OK; /* Nothing to insert */
     }
 
     /* Expand if needed */
     if (book->asks_count >= book->asks_capacity) {
         size_t new_cap = book->asks_capacity * 2;
-        lxdex_price_level_t *new_asks = realloc(book->asks,
-            sizeof(lxdex_price_level_t) * new_cap);
-        if (!new_asks) return LXDEX_ERR_NO_MEMORY;
+        lx_price_level_t *new_asks = realloc(book->asks,
+            sizeof(lx_price_level_t) * new_cap);
+        if (!new_asks) return LX_ERR_NO_MEMORY;
         book->asks = new_asks;
         book->asks_capacity = new_cap;
     }
 
     /* Make room and insert */
     memmove(&book->asks[idx + 1], &book->asks[idx],
-        (book->asks_count - idx) * sizeof(lxdex_price_level_t));
+        (book->asks_count - idx) * sizeof(lx_price_level_t));
 
     book->asks[idx].price = price;
     book->asks[idx].size = size;
     book->asks[idx].count = count;
     book->asks_count++;
 
-    return LXDEX_OK;
+    return LX_OK;
 }
 
 /* Clear the orderbook */
-void lxdex_orderbook_clear(lxdex_orderbook_t *book) {
+void lx_orderbook_clear(lx_orderbook_t *book) {
     if (!book) return;
     book->bids_count = 0;
     book->asks_count = 0;
 }
 
 /* Get total bid volume */
-double lxdex_orderbook_bid_volume(const lxdex_orderbook_t *book, int depth) {
+double lx_orderbook_bid_volume(const lx_orderbook_t *book, int depth) {
     if (!book) return 0.0;
 
     double volume = 0.0;
@@ -277,7 +277,7 @@ double lxdex_orderbook_bid_volume(const lxdex_orderbook_t *book, int depth) {
 }
 
 /* Get total ask volume */
-double lxdex_orderbook_ask_volume(const lxdex_orderbook_t *book, int depth) {
+double lx_orderbook_ask_volume(const lx_orderbook_t *book, int depth) {
     if (!book) return 0.0;
 
     double volume = 0.0;
@@ -292,14 +292,14 @@ double lxdex_orderbook_ask_volume(const lxdex_orderbook_t *book, int depth) {
 }
 
 /* Get price for a given size (market impact) */
-double lxdex_orderbook_price_for_size(const lxdex_orderbook_t *book,
-                                       lxdex_side_t side, double size) {
+double lx_orderbook_price_for_size(const lx_orderbook_t *book,
+                                   lx_side_t side, double size) {
     if (!book || size <= 0.0) return 0.0;
 
-    const lxdex_price_level_t *levels;
+    const lx_price_level_t *levels;
     size_t count;
 
-    if (side == LXDEX_SIDE_BUY) {
+    if (side == LX_SIDE_BUY) {
         /* Buying from asks */
         levels = book->asks;
         count = book->asks_count;
@@ -326,7 +326,7 @@ double lxdex_orderbook_price_for_size(const lxdex_orderbook_t *book,
 }
 
 /* Print orderbook to stdout (for debugging) */
-void lxdex_orderbook_print(const lxdex_orderbook_t *book, int depth) {
+void lx_orderbook_print(const lx_orderbook_t *book, int depth) {
     if (!book) return;
 
     printf("=== %s Orderbook ===\n", book->symbol);
@@ -345,8 +345,8 @@ void lxdex_orderbook_print(const lxdex_orderbook_t *book, int depth) {
             book->asks[i - 1].count);
     }
 
-    double spread = lxdex_orderbook_spread(book);
-    double mid = lxdex_orderbook_mid(book);
+    double spread = lx_orderbook_spread(book);
+    double mid = lx_orderbook_mid(book);
     printf("\n--- Spread: %.8f (%.4f%%) Mid: %.8f ---\n\n",
         spread, (mid > 0 ? (spread / mid) * 100.0 : 0.0), mid);
 

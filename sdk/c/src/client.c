@@ -3,7 +3,7 @@
  * High-performance WebSocket client using libwebsockets.
  */
 
-#include "lxdex.h"
+#include "lx.h"
 #include <libwebsockets.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,23 +13,23 @@
 #include <stdatomic.h>
 
 /* Thread-local error message */
-static _Thread_local char tls_error[LXDEX_MSG_LEN];
+static _Thread_local char tls_error[LX_MSG_LEN];
 
 /* External JSON functions (from json.c) */
-extern char *lxdex_json_auth(const char *api_key, const char *api_secret, const char *request_id);
-extern char *lxdex_json_place_order(const lxdex_order_t *order, const char *request_id);
-extern char *lxdex_json_cancel_order(uint64_t order_id, const char *request_id);
-extern char *lxdex_json_subscribe(const char *channel, const char *request_id);
-extern char *lxdex_json_unsubscribe(const char *channel, const char *request_id);
-extern char *lxdex_json_ping(const char *request_id);
-extern char *lxdex_json_get_balances(const char *request_id);
-extern char *lxdex_json_get_positions(const char *request_id);
-extern char *lxdex_json_get_orders(const char *request_id);
-extern const char *lxdex_json_parse_type(const char *json);
-extern lxdex_error_t lxdex_json_parse_order(const char *json, lxdex_order_t *order);
-extern lxdex_error_t lxdex_json_parse_trade(const char *json, lxdex_trade_t *trade);
-extern lxdex_error_t lxdex_json_parse_orderbook(const char *json, lxdex_orderbook_t *book);
-extern lxdex_error_t lxdex_json_parse_error(const char *json, char *msg_out, size_t msg_len);
+extern char *lx_json_auth(const char *api_key, const char *api_secret, const char *request_id);
+extern char *lx_json_place_order(const lx_order_t *order, const char *request_id);
+extern char *lx_json_cancel_order(uint64_t order_id, const char *request_id);
+extern char *lx_json_subscribe(const char *channel, const char *request_id);
+extern char *lx_json_unsubscribe(const char *channel, const char *request_id);
+extern char *lx_json_ping(const char *request_id);
+extern char *lx_json_get_balances(const char *request_id);
+extern char *lx_json_get_positions(const char *request_id);
+extern char *lx_json_get_orders(const char *request_id);
+extern const char *lx_json_parse_type(const char *json);
+extern lx_error_t lx_json_parse_order(const char *json, lx_order_t *order);
+extern lx_error_t lx_json_parse_trade(const char *json, lx_trade_t *trade);
+extern lx_error_t lx_json_parse_orderbook(const char *json, lx_orderbook_t *book);
+extern lx_error_t lx_json_parse_error(const char *json, char *msg_out, size_t msg_len);
 
 /* Send buffer entry */
 typedef struct send_buf {
@@ -39,7 +39,7 @@ typedef struct send_buf {
 } send_buf_t;
 
 /* Client structure */
-struct lxdex_client {
+struct lx_client {
     /* Configuration */
     char *ws_url;
     char *api_key;
@@ -69,7 +69,7 @@ struct lxdex_client {
     size_t recv_cap;
 
     /* Callbacks */
-    lxdex_callbacks_t callbacks;
+    lx_callbacks_t callbacks;
 
     /* Request ID counter */
     atomic_uint_fast64_t request_id;
@@ -79,14 +79,14 @@ struct lxdex_client {
 static atomic_bool g_initialized = false;
 
 /* Protocol callback */
-static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
-                              void *user, void *in, size_t len);
+static int lx_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
+                           void *user, void *in, size_t len);
 
 /* Protocol definition */
 static struct lws_protocols protocols[] = {
     {
-        .name = "lxdex",
-        .callback = lxdex_lws_callback,
+        .name = "lx",
+        .callback = lx_lws_callback,
         .per_session_data_size = sizeof(void *),
         .rx_buffer_size = 65536,
     },
@@ -104,25 +104,25 @@ static void set_error(const char *fmt, ...) {
     va_end(ap);
 }
 
-static char *generate_request_id(lxdex_client_t *client) {
+static char *generate_request_id(lx_client_t *client) {
     static char buf[32];
     uint64_t id = atomic_fetch_add(&client->request_id, 1);
     snprintf(buf, sizeof(buf), "req_%llu", (unsigned long long)id);
     return buf;
 }
 
-static lxdex_error_t queue_send(lxdex_client_t *client, const char *msg) {
-    if (!client || !msg) return LXDEX_ERR_INVALID_ARG;
+static lx_error_t queue_send(lx_client_t *client, const char *msg) {
+    if (!client || !msg) return LX_ERR_INVALID_ARG;
 
     size_t len = strlen(msg);
     send_buf_t *buf = malloc(sizeof(send_buf_t));
-    if (!buf) return LXDEX_ERR_NO_MEMORY;
+    if (!buf) return LX_ERR_NO_MEMORY;
 
     /* LWS requires LWS_PRE bytes before data */
     buf->data = malloc(LWS_PRE + len);
     if (!buf->data) {
         free(buf);
-        return LXDEX_ERR_NO_MEMORY;
+        return LX_ERR_NO_MEMORY;
     }
 
     memcpy(buf->data + LWS_PRE, msg, len);
@@ -143,10 +143,10 @@ static lxdex_error_t queue_send(lxdex_client_t *client, const char *msg) {
         lws_callback_on_writable(client->wsi);
     }
 
-    return LXDEX_OK;
+    return LX_OK;
 }
 
-static void process_message(lxdex_client_t *client, const char *msg, size_t len) {
+static void process_message(lx_client_t *client, const char *msg, size_t len) {
     if (!client || !msg || len == 0) return;
 
     /* Null-terminate for parsing */
@@ -155,38 +155,38 @@ static void process_message(lxdex_client_t *client, const char *msg, size_t len)
     memcpy(json, msg, len);
     json[len] = '\0';
 
-    const char *type = lxdex_json_parse_type(json);
+    const char *type = lx_json_parse_type(json);
     if (!type) {
         free(json);
         return;
     }
 
     if (strcmp(type, "connected") == 0) {
-        atomic_store(&client->state, LXDEX_STATE_CONNECTED);
+        atomic_store(&client->state, LX_STATE_CONNECTED);
         if (client->callbacks.on_connect) {
             client->callbacks.on_connect(client, client->callbacks.user_data);
         }
     }
     else if (strcmp(type, "auth_success") == 0) {
-        atomic_store(&client->state, LXDEX_STATE_AUTHENTICATED);
+        atomic_store(&client->state, LX_STATE_AUTHENTICATED);
         client->auth_pending = false;
     }
     else if (strcmp(type, "error") == 0) {
-        char err_msg[LXDEX_MSG_LEN] = {0};
-        lxdex_json_parse_error(json, err_msg, sizeof(err_msg));
+        char err_msg[LX_MSG_LEN] = {0};
+        lx_json_parse_error(json, err_msg, sizeof(err_msg));
         if (client->auth_pending) {
             client->auth_pending = false;
-            atomic_store(&client->state, LXDEX_STATE_CONNECTED);
+            atomic_store(&client->state, LX_STATE_CONNECTED);
         }
         if (client->callbacks.on_error) {
-            client->callbacks.on_error(client, LXDEX_ERR_PROTOCOL, err_msg,
+            client->callbacks.on_error(client, LX_ERR_PROTOCOL, err_msg,
                 client->callbacks.user_data);
         }
     }
     else if (strcmp(type, "order_update") == 0) {
         if (client->callbacks.on_order_update) {
-            lxdex_order_t order;
-            if (lxdex_json_parse_order(json, &order) == LXDEX_OK) {
+            lx_order_t order;
+            if (lx_json_parse_order(json, &order) == LX_OK) {
                 client->callbacks.on_order_update(client, &order,
                     client->callbacks.user_data);
             }
@@ -194,8 +194,8 @@ static void process_message(lxdex_client_t *client, const char *msg, size_t len)
     }
     else if (strcmp(type, "trade") == 0) {
         if (client->callbacks.on_trade) {
-            lxdex_trade_t trade;
-            if (lxdex_json_parse_trade(json, &trade) == LXDEX_OK) {
+            lx_trade_t trade;
+            if (lx_json_parse_trade(json, &trade) == LX_OK) {
                 client->callbacks.on_trade(client, &trade,
                     client->callbacks.user_data);
             }
@@ -203,12 +203,12 @@ static void process_message(lxdex_client_t *client, const char *msg, size_t len)
     }
     else if (strcmp(type, "orderbook") == 0 || strcmp(type, "orderbook_update") == 0) {
         if (client->callbacks.on_orderbook) {
-            lxdex_orderbook_t book;
+            lx_orderbook_t book;
             memset(&book, 0, sizeof(book));
-            if (lxdex_json_parse_orderbook(json, &book) == LXDEX_OK) {
+            if (lx_json_parse_orderbook(json, &book) == LX_OK) {
                 client->callbacks.on_orderbook(client, &book,
                     client->callbacks.user_data);
-                lxdex_orderbook_free(&book);
+                lx_orderbook_free(&book);
             }
         }
     }
@@ -222,9 +222,9 @@ static void process_message(lxdex_client_t *client, const char *msg, size_t len)
 /*
  * libwebsockets callback
  */
-static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
-                              void *user, void *in, size_t len) {
-    lxdex_client_t *client = NULL;
+static int lx_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
+                           void *user, void *in, size_t len) {
+    lx_client_t *client = NULL;
 
     /* Get client pointer from protocol user data */
     struct lws_context *ctx = lws_get_context(wsi);
@@ -235,7 +235,7 @@ static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
     switch (reason) {
         case LWS_CALLBACK_CLIENT_ESTABLISHED:
             if (client) {
-                atomic_store(&client->state, LXDEX_STATE_CONNECTED);
+                atomic_store(&client->state, LX_STATE_CONNECTED);
             }
             break;
 
@@ -293,11 +293,11 @@ static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
             if (client) {
-                atomic_store(&client->state, LXDEX_STATE_ERROR);
+                atomic_store(&client->state, LX_STATE_ERROR);
                 const char *err = in ? (const char *)in : "Connection error";
                 set_error("%s", err);
                 if (client->callbacks.on_error) {
-                    client->callbacks.on_error(client, LXDEX_ERR_CONNECTION, err,
+                    client->callbacks.on_error(client, LX_ERR_CONNECTION, err,
                         client->callbacks.user_data);
                 }
             }
@@ -305,9 +305,9 @@ static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
         case LWS_CALLBACK_CLIENT_CLOSED:
             if (client) {
-                lxdex_conn_state_t prev = atomic_exchange(&client->state, LXDEX_STATE_DISCONNECTED);
+                lx_conn_state_t prev = atomic_exchange(&client->state, LX_STATE_DISCONNECTED);
                 client->wsi = NULL;
-                if (client->callbacks.on_disconnect && prev != LXDEX_STATE_DISCONNECTED) {
+                if (client->callbacks.on_disconnect && prev != LX_STATE_DISCONNECTED) {
                     client->callbacks.on_disconnect(client, 0, "Connection closed",
                         client->callbacks.user_data);
                 }
@@ -325,50 +325,50 @@ static int lxdex_lws_callback(struct lws *wsi, enum lws_callback_reasons reason,
  * Public API
  */
 
-const char *lxdex_version(void) {
+const char *lx_version(void) {
     static char ver[32];
     snprintf(ver, sizeof(ver), "%d.%d.%d",
-        LXDEX_VERSION_MAJOR, LXDEX_VERSION_MINOR, LXDEX_VERSION_PATCH);
+        LX_VERSION_MAJOR, LX_VERSION_MINOR, LX_VERSION_PATCH);
     return ver;
 }
 
-lxdex_error_t lxdex_init(void) {
+lx_error_t lx_init(void) {
     bool expected = false;
     if (atomic_compare_exchange_strong(&g_initialized, &expected, true)) {
         /* Initialize libwebsockets logging */
         lws_set_log_level(LLL_ERR | LLL_WARN, NULL);
     }
-    return LXDEX_OK;
+    return LX_OK;
 }
 
-void lxdex_cleanup(void) {
+void lx_cleanup(void) {
     atomic_store(&g_initialized, false);
 }
 
-const char *lxdex_strerror(lxdex_error_t error) {
+const char *lx_strerror(lx_error_t error) {
     switch (error) {
-        case LXDEX_OK: return "Success";
-        case LXDEX_ERR_INVALID_ARG: return "Invalid argument";
-        case LXDEX_ERR_NO_MEMORY: return "Out of memory";
-        case LXDEX_ERR_CONNECTION: return "Connection error";
-        case LXDEX_ERR_TIMEOUT: return "Operation timed out";
-        case LXDEX_ERR_AUTH: return "Authentication failed";
-        case LXDEX_ERR_PARSE: return "Parse error";
-        case LXDEX_ERR_PROTOCOL: return "Protocol error";
-        case LXDEX_ERR_RATE_LIMIT: return "Rate limit exceeded";
-        case LXDEX_ERR_ORDER_REJECTED: return "Order rejected";
-        case LXDEX_ERR_NOT_CONNECTED: return "Not connected";
-        case LXDEX_ERR_INTERNAL: return "Internal error";
+        case LX_OK: return "Success";
+        case LX_ERR_INVALID_ARG: return "Invalid argument";
+        case LX_ERR_NO_MEMORY: return "Out of memory";
+        case LX_ERR_CONNECTION: return "Connection error";
+        case LX_ERR_TIMEOUT: return "Operation timed out";
+        case LX_ERR_AUTH: return "Authentication failed";
+        case LX_ERR_PARSE: return "Parse error";
+        case LX_ERR_PROTOCOL: return "Protocol error";
+        case LX_ERR_RATE_LIMIT: return "Rate limit exceeded";
+        case LX_ERR_ORDER_REJECTED: return "Order rejected";
+        case LX_ERR_NOT_CONNECTED: return "Not connected";
+        case LX_ERR_INTERNAL: return "Internal error";
         default: return "Unknown error";
     }
 }
 
-const char *lxdex_last_error(void) {
+const char *lx_last_error(void) {
     return tls_error[0] ? tls_error : NULL;
 }
 
-lxdex_client_t *lxdex_client_new(const lxdex_config_t *config) {
-    lxdex_client_t *client = calloc(1, sizeof(lxdex_client_t));
+lx_client_t *lx_client_new(const lx_config_t *config) {
+    lx_client_t *client = calloc(1, sizeof(lx_client_t));
     if (!client) return NULL;
 
     /* Set defaults */
@@ -394,7 +394,7 @@ lxdex_client_t *lxdex_client_new(const lxdex_config_t *config) {
         ? config->reconnect_interval_ms : 5000;
     client->auto_reconnect = config ? config->auto_reconnect : false;
 
-    atomic_init(&client->state, LXDEX_STATE_DISCONNECTED);
+    atomic_init(&client->state, LX_STATE_DISCONNECTED);
     atomic_init(&client->request_id, 1);
 
     pthread_mutex_init(&client->send_mutex, NULL);
@@ -413,24 +413,24 @@ lxdex_client_t *lxdex_client_new(const lxdex_config_t *config) {
     return client;
 }
 
-void lxdex_client_set_callbacks(lxdex_client_t *client, const lxdex_callbacks_t *callbacks) {
+void lx_client_set_callbacks(lx_client_t *client, const lx_callbacks_t *callbacks) {
     if (client && callbacks) {
         client->callbacks = *callbacks;
     }
 }
 
-lxdex_conn_state_t lxdex_client_state(const lxdex_client_t *client) {
-    return client ? atomic_load(&client->state) : LXDEX_STATE_DISCONNECTED;
+lx_conn_state_t lx_client_state(const lx_client_t *client) {
+    return client ? atomic_load(&client->state) : LX_STATE_DISCONNECTED;
 }
 
-lxdex_error_t lxdex_client_connect(lxdex_client_t *client) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_client_connect(lx_client_t *client) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    if (atomic_load(&client->state) != LXDEX_STATE_DISCONNECTED) {
-        return LXDEX_OK; /* Already connected or connecting */
+    if (atomic_load(&client->state) != LX_STATE_DISCONNECTED) {
+        return LX_OK; /* Already connected or connecting */
     }
 
-    atomic_store(&client->state, LXDEX_STATE_CONNECTING);
+    atomic_store(&client->state, LX_STATE_CONNECTING);
 
     /* Parse URL */
     const char *protocol = "ws";
@@ -477,9 +477,9 @@ lxdex_error_t lxdex_client_connect(lxdex_client_t *client) {
 
     client->lws_ctx = lws_create_context(&ctx_info);
     if (!client->lws_ctx) {
-        atomic_store(&client->state, LXDEX_STATE_ERROR);
+        atomic_store(&client->state, LX_STATE_ERROR);
         set_error("Failed to create WebSocket context");
-        return LXDEX_ERR_CONNECTION;
+        return LX_ERR_CONNECTION;
     }
 
     /* Connect */
@@ -498,40 +498,40 @@ lxdex_error_t lxdex_client_connect(lxdex_client_t *client) {
     if (!client->wsi) {
         lws_context_destroy(client->lws_ctx);
         client->lws_ctx = NULL;
-        atomic_store(&client->state, LXDEX_STATE_ERROR);
+        atomic_store(&client->state, LX_STATE_ERROR);
         set_error("Failed to initiate connection");
-        return LXDEX_ERR_CONNECTION;
+        return LX_ERR_CONNECTION;
     }
 
-    return LXDEX_OK;
+    return LX_OK;
 }
 
-lxdex_error_t lxdex_client_auth(lxdex_client_t *client) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_client_auth(lx_client_t *client) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_CONNECTED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_CONNECTED) {
         set_error("Not connected");
-        return LXDEX_ERR_NOT_CONNECTED;
+        return LX_ERR_NOT_CONNECTED;
     }
 
     if (!client->api_key || !client->api_secret) {
         set_error("Missing API credentials");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_auth(client->api_key, client->api_secret,
+    char *msg = lx_json_auth(client->api_key, client->api_secret,
         generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    if (!msg) return LX_ERR_NO_MEMORY;
 
     client->auth_pending = true;
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
 
     return err;
 }
 
-void lxdex_client_disconnect(lxdex_client_t *client) {
+void lx_client_disconnect(lx_client_t *client) {
     if (!client) return;
 
     client->should_close = true;
@@ -546,13 +546,13 @@ void lxdex_client_disconnect(lxdex_client_t *client) {
     }
 
     client->wsi = NULL;
-    atomic_store(&client->state, LXDEX_STATE_DISCONNECTED);
+    atomic_store(&client->state, LX_STATE_DISCONNECTED);
 }
 
-void lxdex_client_free(lxdex_client_t *client) {
+void lx_client_free(lx_client_t *client) {
     if (!client) return;
 
-    lxdex_client_disconnect(client);
+    lx_client_disconnect(client);
 
     /* Free send queue */
     pthread_mutex_lock(&client->send_mutex);
@@ -573,7 +573,7 @@ void lxdex_client_free(lxdex_client_t *client) {
     free(client);
 }
 
-int lxdex_client_service(lxdex_client_t *client, int timeout_ms) {
+int lx_client_service(lx_client_t *client, int timeout_ms) {
     if (!client || !client->lws_ctx) return -1;
     return lws_service(client->lws_ctx, timeout_ms);
 }
@@ -582,20 +582,20 @@ int lxdex_client_service(lxdex_client_t *client, int timeout_ms) {
  * Order operations
  */
 
-lxdex_error_t lxdex_place_order(lxdex_client_t *client, const lxdex_order_t *order,
-                                uint64_t *order_id_out) {
-    if (!client || !order) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_place_order(lx_client_t *client, const lx_order_t *order,
+                          uint64_t *order_id_out) {
+    if (!client || !order) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_place_order(order, generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_place_order(order, generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
 
     /* Note: actual order_id will come via callback */
@@ -604,38 +604,38 @@ lxdex_error_t lxdex_place_order(lxdex_client_t *client, const lxdex_order_t *ord
     return err;
 }
 
-lxdex_error_t lxdex_cancel_order(lxdex_client_t *client, uint64_t order_id) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_cancel_order(lx_client_t *client, uint64_t order_id) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_cancel_order(order_id, generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_cancel_order(order_id, generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
     return err;
 }
 
-lxdex_error_t lxdex_cancel_all_orders(lxdex_client_t *client, const char *symbol) {
+lx_error_t lx_cancel_all_orders(lx_client_t *client, const char *symbol) {
     /* Not directly supported - would need to get orders and cancel each */
     (void)client;
     (void)symbol;
-    return LXDEX_ERR_PROTOCOL;
+    return LX_ERR_PROTOCOL;
 }
 
-lxdex_error_t lxdex_modify_order(lxdex_client_t *client, uint64_t order_id,
-                                  double new_price, double new_size) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_modify_order(lx_client_t *client, uint64_t order_id,
+                           double new_price, double new_size) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
     /* Build modify message manually */
@@ -652,58 +652,58 @@ lxdex_error_t lxdex_modify_order(lxdex_client_t *client, uint64_t order_id,
  * Subscriptions
  */
 
-lxdex_error_t lxdex_subscribe_orderbook(lxdex_client_t *client, const char *symbol) {
-    if (!client || !symbol) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_subscribe_orderbook(lx_client_t *client, const char *symbol) {
+    if (!client || !symbol) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state < LXDEX_STATE_CONNECTED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state < LX_STATE_CONNECTED) {
         set_error("Not connected");
-        return LXDEX_ERR_NOT_CONNECTED;
+        return LX_ERR_NOT_CONNECTED;
     }
 
     char channel[128];
     snprintf(channel, sizeof(channel), "orderbook:%s", symbol);
 
-    char *msg = lxdex_json_subscribe(channel, generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_subscribe(channel, generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
     return err;
 }
 
-lxdex_error_t lxdex_subscribe_trades(lxdex_client_t *client, const char *symbol) {
-    if (!client || !symbol) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_subscribe_trades(lx_client_t *client, const char *symbol) {
+    if (!client || !symbol) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state < LXDEX_STATE_CONNECTED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state < LX_STATE_CONNECTED) {
         set_error("Not connected");
-        return LXDEX_ERR_NOT_CONNECTED;
+        return LX_ERR_NOT_CONNECTED;
     }
 
     char channel[128];
     snprintf(channel, sizeof(channel), "trades:%s", symbol);
 
-    char *msg = lxdex_json_subscribe(channel, generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_subscribe(channel, generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
     return err;
 }
 
-lxdex_error_t lxdex_unsubscribe(lxdex_client_t *client, const char *channel) {
-    if (!client || !channel) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_unsubscribe(lx_client_t *client, const char *channel) {
+    if (!client || !channel) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state < LXDEX_STATE_CONNECTED) {
-        return LXDEX_OK; /* Not connected, nothing to unsubscribe */
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state < LX_STATE_CONNECTED) {
+        return LX_OK; /* Not connected, nothing to unsubscribe */
     }
 
-    char *msg = lxdex_json_unsubscribe(channel, generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_unsubscribe(channel, generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
     return err;
 }
@@ -712,44 +712,44 @@ lxdex_error_t lxdex_unsubscribe(lxdex_client_t *client, const char *channel) {
  * Data queries (blocking operations - requires async response handling)
  */
 
-lxdex_error_t lxdex_get_orderbook(lxdex_client_t *client, const char *symbol,
-                                   int depth, lxdex_orderbook_t *book_out) {
+lx_error_t lx_get_orderbook(lx_client_t *client, const char *symbol,
+                            int depth, lx_orderbook_t *book_out) {
     /* For now, return not implemented - true blocking requires response correlation */
     (void)client;
     (void)symbol;
     (void)depth;
     (void)book_out;
     set_error("Blocking queries not implemented; use subscriptions");
-    return LXDEX_ERR_PROTOCOL;
+    return LX_ERR_PROTOCOL;
 }
 
-lxdex_error_t lxdex_get_trades(lxdex_client_t *client, const char *symbol,
-                                int limit, lxdex_trade_t **trades_out,
-                                size_t *count_out) {
+lx_error_t lx_get_trades(lx_client_t *client, const char *symbol,
+                         int limit, lx_trade_t **trades_out,
+                         size_t *count_out) {
     (void)client;
     (void)symbol;
     (void)limit;
     (void)trades_out;
     (void)count_out;
     set_error("Blocking queries not implemented; use subscriptions");
-    return LXDEX_ERR_PROTOCOL;
+    return LX_ERR_PROTOCOL;
 }
 
-lxdex_error_t lxdex_get_balances(lxdex_client_t *client,
-                                  lxdex_balance_t **balances_out,
-                                  size_t *count_out) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_get_balances(lx_client_t *client,
+                           lx_balance_t **balances_out,
+                           size_t *count_out) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_get_balances(generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_get_balances(generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
 
     /* Results come via callback */
@@ -759,21 +759,21 @@ lxdex_error_t lxdex_get_balances(lxdex_client_t *client,
     return err;
 }
 
-lxdex_error_t lxdex_get_positions(lxdex_client_t *client,
-                                   lxdex_position_t **positions_out,
-                                   size_t *count_out) {
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+lx_error_t lx_get_positions(lx_client_t *client,
+                            lx_position_t **positions_out,
+                            size_t *count_out) {
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_get_positions(generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_get_positions(generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
 
     if (positions_out) *positions_out = NULL;
@@ -782,22 +782,22 @@ lxdex_error_t lxdex_get_positions(lxdex_client_t *client,
     return err;
 }
 
-lxdex_error_t lxdex_get_orders(lxdex_client_t *client, const char *symbol,
-                                lxdex_order_t **orders_out, size_t *count_out) {
+lx_error_t lx_get_orders(lx_client_t *client, const char *symbol,
+                         lx_order_t **orders_out, size_t *count_out) {
     (void)symbol; /* Symbol filtering would be done client-side */
 
-    if (!client) return LXDEX_ERR_INVALID_ARG;
+    if (!client) return LX_ERR_INVALID_ARG;
 
-    lxdex_conn_state_t state = atomic_load(&client->state);
-    if (state != LXDEX_STATE_AUTHENTICATED) {
+    lx_conn_state_t state = atomic_load(&client->state);
+    if (state != LX_STATE_AUTHENTICATED) {
         set_error("Not authenticated");
-        return LXDEX_ERR_AUTH;
+        return LX_ERR_AUTH;
     }
 
-    char *msg = lxdex_json_get_orders(generate_request_id(client));
-    if (!msg) return LXDEX_ERR_NO_MEMORY;
+    char *msg = lx_json_get_orders(generate_request_id(client));
+    if (!msg) return LX_ERR_NO_MEMORY;
 
-    lxdex_error_t err = queue_send(client, msg);
+    lx_error_t err = queue_send(client, msg);
     free(msg);
 
     if (orders_out) *orders_out = NULL;
@@ -810,26 +810,26 @@ lxdex_error_t lxdex_get_orders(lxdex_client_t *client, const char *symbol,
  * Memory management
  */
 
-void lxdex_free(void *ptr) {
+void lx_free(void *ptr) {
     free(ptr);
 }
 
-void lxdex_trades_free(lxdex_trade_t *trades, size_t count) {
+void lx_trades_free(lx_trade_t *trades, size_t count) {
     (void)count;
     free(trades);
 }
 
-void lxdex_balances_free(lxdex_balance_t *balances, size_t count) {
+void lx_balances_free(lx_balance_t *balances, size_t count) {
     (void)count;
     free(balances);
 }
 
-void lxdex_positions_free(lxdex_position_t *positions, size_t count) {
+void lx_positions_free(lx_position_t *positions, size_t count) {
     (void)count;
     free(positions);
 }
 
-void lxdex_orders_free(lxdex_order_t *orders, size_t count) {
+void lx_orders_free(lx_order_t *orders, size_t count) {
     (void)count;
     free(orders);
 }

@@ -2,8 +2,8 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#ifndef LXDEX_ORDERBOOK_HPP
-#define LXDEX_ORDERBOOK_HPP
+#ifndef LX_ORDERBOOK_HPP
+#define LX_ORDERBOOK_HPP
 
 #include "types.hpp"
 #include <map>
@@ -12,7 +12,7 @@
 #include <functional>
 #include <atomic>
 
-namespace lxdex {
+namespace lx {
 
 /// Local orderbook for market data tracking
 /// Thread-safe implementation for real-time updates
@@ -183,6 +183,6 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace lxdex
+} // namespace lx
 
-#endif // LXDEX_ORDERBOOK_HPP
+#endif // LX_ORDERBOOK_HPP

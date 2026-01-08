@@ -2,11 +2,11 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#include "lxdex/orderbook.hpp"
+#include "lx/orderbook.hpp"
 #include <algorithm>
 #include <chrono>
 
-namespace lxdex {
+namespace lx {
 
 //------------------------------------------------------------------------------
 // LocalOrderBook
@@ -358,4 +358,4 @@ void OrderBookManager::clear() {
     books_.clear();
 }
 
-} // namespace lxdex
+} // namespace lx

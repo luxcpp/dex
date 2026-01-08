@@ -28,25 +28,25 @@ cmake --build .
 ### Build Options
 
 ```bash
-cmake -DLXDEX_BUILD_EXAMPLES=ON ..   # Build examples (default: ON)
-cmake -DLXDEX_BUILD_TESTS=ON ..      # Build tests (default: OFF)
+cmake -DLX_BUILD_EXAMPLES=ON ..   # Build examples (default: ON)
+cmake -DLX_BUILD_TESTS=ON ..      # Build tests (default: OFF)
 ```
 
 ## Quick Start
 
 ```cpp
-#include <lxdex/client.hpp>
+#include <lx/client.hpp>
 #include <iostream>
 
 int main() {
     // Configure
-    lxdex::ClientConfig config;
+    lx::ClientConfig config;
     config.ws_url = "ws://localhost:8081";
     config.api_key = "your_key";
     config.api_secret = "your_secret";
 
     // Create client
-    auto client = lxdex::make_client(config);
+    auto client = lx::make_client(config);
 
     // Connect
     if (auto err = client->connect(); err) {
@@ -61,10 +61,10 @@ int main() {
     }
 
     // Place order
-    lxdex::Order order;
+    lx::Order order;
     order.symbol = "BTC-USDT";
-    order.side = lxdex::Side::Buy;
-    order.type = lxdex::OrderType::Limit;
+    order.side = lx::Side::Buy;
+    order.type = lx::OrderType::Limit;
     order.price = 40000.0;
     order.size = 0.01;
 
@@ -74,7 +74,7 @@ int main() {
     }
 
     // Subscribe to orderbook
-    client->subscribe_orderbook({"BTC-USDT"}, [](const lxdex::OrderBook& ob) {
+    client->subscribe_orderbook({"BTC-USDT"}, [](const lx::OrderBook& ob) {
         std::cout << "Best bid: " << ob.best_bid()
                   << " Best ask: " << ob.best_ask() << "\n";
     });
@@ -285,50 +285,50 @@ struct Result {
 ## Example: High-Frequency Trading
 
 ```cpp
-#include <lxdex/client.hpp>
+#include <lx/client.hpp>
 
 int main() {
-    lxdex::ClientConfig config;
+    lx::ClientConfig config;
     config.ws_url = "ws://localhost:8081";
     config.api_key = "key";
     config.api_secret = "secret";
 
-    auto client = lxdex::make_client(config);
+    auto client = lx::make_client(config);
     client->connect();
     client->authenticate();
 
     // Track local orderbook
-    client->subscribe_orderbook({"BTC-USDT"}, [&](const lxdex::OrderBook& ob) {
+    client->subscribe_orderbook({"BTC-USDT"}, [&](const lx::OrderBook& ob) {
         double mid = ob.mid_price();
         double spread = ob.spread();
 
         // Simple market making logic
         if (spread > 10.0) {
             // Place bid slightly below mid
-            lxdex::Order bid;
+            lx::Order bid;
             bid.symbol = "BTC-USDT";
-            bid.side = lxdex::Side::Buy;
-            bid.type = lxdex::OrderType::Limit;
+            bid.side = lx::Side::Buy;
+            bid.type = lx::OrderType::Limit;
             bid.price = mid - 2.0;
             bid.size = 0.001;
             bid.post_only = true;
-            bid.client_id = lxdex::Client::generate_client_id();
+            bid.client_id = lx::Client::generate_client_id();
 
             client->place_order_async(bid);
 
             // Place ask slightly above mid
-            lxdex::Order ask = bid;
-            ask.side = lxdex::Side::Sell;
+            lx::Order ask = bid;
+            ask.side = lx::Side::Sell;
             ask.price = mid + 2.0;
-            ask.client_id = lxdex::Client::generate_client_id();
+            ask.client_id = lx::Client::generate_client_id();
 
             client->place_order_async(ask);
         }
     });
 
     // Handle fills
-    client->on_order([](const lxdex::Order& order) {
-        if (order.status == lxdex::OrderStatus::Filled) {
+    client->on_order([](const lx::Order& order) {
+        if (order.status == lx::OrderStatus::Filled) {
             std::cout << "Filled: " << order.order_id << "\n";
         }
     });
@@ -343,20 +343,20 @@ int main() {
 ## Integration with CMake Projects
 
 ```cmake
-find_package(lxdex REQUIRED)
-target_link_libraries(your_target PRIVATE lxdex::lxdex)
+find_package(lx REQUIRED)
+target_link_libraries(your_target PRIVATE lx::lx)
 ```
 
 Or use FetchContent:
 
 ```cmake
 FetchContent_Declare(
-    lxdex
+    lx
     GIT_REPOSITORY https://github.com/luxfi/dex.git
     SOURCE_SUBDIR sdk/cpp
 )
-FetchContent_MakeAvailable(lxdex)
-target_link_libraries(your_target PRIVATE lxdex)
+FetchContent_MakeAvailable(lx)
+target_link_libraries(your_target PRIVATE lx)
 ```
 
 ## License

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
-project(lxdex VERSION 1.0.0 LANGUAGES C)
+project(lx VERSION 1.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Options
-option(LXDEX_BUILD_EXAMPLES "Build examples" ON)
-option(LXDEX_BUILD_TESTS "Build tests" OFF)
+option(LX_BUILD_EXAMPLES "Build examples" ON)
+option(LX_BUILD_TESTS "Build tests" OFF)
 
 # Find libwebsockets
 find_path(LWS_INCLUDE_DIR libwebsockets.h
@@ -42,16 +42,16 @@ elseif(UNIX)
 endif()
 
 # Library sources
-set(LXDEX_SOURCES
+set(LX_SOURCES
     src/client.c
     src/orderbook.c
     src/json.c
 )
 
 # Create static library
-add_library(lxdex STATIC ${LXDEX_SOURCES})
+add_library(lx STATIC ${LX_SOURCES})
 
-target_include_directories(lxdex
+target_include_directories(lx
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -60,7 +60,7 @@ target_include_directories(lxdex
         ${OPENSSL_INCLUDE_DIR}
 )
 
-target_link_libraries(lxdex
+target_link_libraries(lx
     PRIVATE
         ${LIBWEBSOCKETS_LIBRARIES}
         OpenSSL::SSL
@@ -68,13 +68,13 @@ target_link_libraries(lxdex
         ${PLATFORM_LIBS}
 )
 
-target_compile_options(lxdex PRIVATE ${LIBWEBSOCKETS_CFLAGS_OTHER})
+target_compile_options(lx PRIVATE ${LIBWEBSOCKETS_CFLAGS_OTHER})
 
 # Shared library
-add_library(lxdex_shared SHARED ${LXDEX_SOURCES})
-set_target_properties(lxdex_shared PROPERTIES OUTPUT_NAME lxdex)
+add_library(lx_shared SHARED ${LX_SOURCES})
+set_target_properties(lx_shared PROPERTIES OUTPUT_NAME lx)
 
-target_include_directories(lxdex_shared
+target_include_directories(lx_shared
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -83,7 +83,7 @@ target_include_directories(lxdex_shared
         ${OPENSSL_INCLUDE_DIR}
 )
 
-target_link_libraries(lxdex_shared
+target_link_libraries(lx_shared
     PRIVATE
         ${LIBWEBSOCKETS_LIBRARIES}
         OpenSSL::SSL
@@ -91,34 +91,34 @@ target_link_libraries(lxdex_shared
         ${PLATFORM_LIBS}
 )
 
-target_compile_options(lxdex_shared PRIVATE ${LIBWEBSOCKETS_CFLAGS_OTHER})
+target_compile_options(lx_shared PRIVATE ${LIBWEBSOCKETS_CFLAGS_OTHER})
 
 # Examples
-if(LXDEX_BUILD_EXAMPLES)
+if(LX_BUILD_EXAMPLES)
     add_executable(basic examples/basic.c)
-    target_link_libraries(basic PRIVATE lxdex ${LIBWEBSOCKETS_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto ${PLATFORM_LIBS})
+    target_link_libraries(basic PRIVATE lx ${LIBWEBSOCKETS_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto ${PLATFORM_LIBS})
     target_include_directories(basic PRIVATE ${LIBWEBSOCKETS_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
 endif()
 
 # Install rules
 include(GNUInstallDirs)
 
-install(TARGETS lxdex lxdex_shared
+install(TARGETS lx lx_shared
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES include/lxdex.h
+install(FILES include/lx.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # pkg-config
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/lxdex.pc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/lxdex.pc
+    ${CMAKE_CURRENT_SOURCE_DIR}/lx.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/lx.pc
     @ONLY
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lxdex.pc
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lx.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )

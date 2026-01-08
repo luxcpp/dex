@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#include <lxdex/client.hpp>
+#include <lx/client.hpp>
 #include <iostream>
 #include <iomanip>
 #include <thread>
@@ -16,7 +16,7 @@ void signal_handler(int signal) {
     g_running = false;
 }
 
-void print_orderbook(const lxdex::OrderBook& ob) {
+void print_orderbook(const lx::OrderBook& ob) {
     std::cout << "\n=== " << ob.symbol << " Orderbook ===\n";
     std::cout << std::fixed << std::setprecision(2);
 
@@ -42,25 +42,25 @@ void print_orderbook(const lxdex::OrderBook& ob) {
     std::cout << "Mid: " << std::setprecision(2) << ob.mid_price() << "\n";
 }
 
-void print_trade(const lxdex::Trade& trade) {
+void print_trade(const lx::Trade& trade) {
     std::cout << "[Trade] " << trade.symbol
-              << " " << (trade.side == lxdex::Side::Buy ? "BUY" : "SELL")
+              << " " << (trade.side == lx::Side::Buy ? "BUY" : "SELL")
               << " " << trade.size << " @ " << trade.price
               << " (id: " << trade.trade_id << ")\n";
 }
 
-void print_order(const lxdex::Order& order) {
+void print_order(const lx::Order& order) {
     std::cout << "[Order] " << order.symbol
-              << " " << (order.side == lxdex::Side::Buy ? "BUY" : "SELL")
+              << " " << (order.side == lx::Side::Buy ? "BUY" : "SELL")
               << " " << order.size << " @ " << order.price
               << " status: ";
 
     switch (order.status) {
-        case lxdex::OrderStatus::Open: std::cout << "OPEN"; break;
-        case lxdex::OrderStatus::Partial: std::cout << "PARTIAL"; break;
-        case lxdex::OrderStatus::Filled: std::cout << "FILLED"; break;
-        case lxdex::OrderStatus::Cancelled: std::cout << "CANCELLED"; break;
-        case lxdex::OrderStatus::Rejected: std::cout << "REJECTED"; break;
+        case lx::OrderStatus::Open: std::cout << "OPEN"; break;
+        case lx::OrderStatus::Partial: std::cout << "PARTIAL"; break;
+        case lx::OrderStatus::Filled: std::cout << "FILLED"; break;
+        case lx::OrderStatus::Cancelled: std::cout << "CANCELLED"; break;
+        case lx::OrderStatus::Rejected: std::cout << "REJECTED"; break;
     }
     std::cout << " (id: " << order.order_id << ")\n";
 }
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     std::cout << "======================\n\n";
 
     // Configure client
-    lxdex::ClientConfig config;
+    lx::ClientConfig config;
     config.ws_url = "ws://localhost:8081";
     config.auto_reconnect = true;
     config.max_reconnect_attempts = 5;
@@ -99,10 +99,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Create client
-    auto client = lxdex::make_client(config);
+    auto client = lx::make_client(config);
 
     // Setup callbacks
-    client->on_error([](const lxdex::Error& err) {
+    client->on_error([](const lx::Error& err) {
         std::cerr << "[Error] " << err.message;
         if (!err.request_id.empty()) {
             std::cerr << " (request: " << err.request_id << ")";
@@ -110,29 +110,29 @@ int main(int argc, char* argv[]) {
         std::cerr << "\n";
     });
 
-    client->on_connection([](lxdex::ConnectionState state) {
+    client->on_connection([](lx::ConnectionState state) {
         std::cout << "[Connection] State: ";
         switch (state) {
-            case lxdex::ConnectionState::Disconnected:
+            case lx::ConnectionState::Disconnected:
                 std::cout << "DISCONNECTED";
                 break;
-            case lxdex::ConnectionState::Connecting:
+            case lx::ConnectionState::Connecting:
                 std::cout << "CONNECTING";
                 break;
-            case lxdex::ConnectionState::Connected:
+            case lx::ConnectionState::Connected:
                 std::cout << "CONNECTED";
                 break;
-            case lxdex::ConnectionState::Reconnecting:
+            case lx::ConnectionState::Reconnecting:
                 std::cout << "RECONNECTING";
                 break;
-            case lxdex::ConnectionState::Failed:
+            case lx::ConnectionState::Failed:
                 std::cout << "FAILED";
                 break;
         }
         std::cout << "\n";
     });
 
-    client->on_order([](const lxdex::Order& order) {
+    client->on_order([](const lx::Order& order) {
         print_order(order);
     });
 
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> symbols = {"BTC-USDT", "ETH-USDT"};
 
     std::cout << "Subscribing to orderbook updates...\n";
-    err = client->subscribe_orderbook(symbols, [](const lxdex::OrderBook& ob) {
+    err = client->subscribe_orderbook(symbols, [](const lx::OrderBook& ob) {
         print_orderbook(ob);
     });
     if (err) {
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
 
     // Subscribe to trades
     std::cout << "Subscribing to trade updates...\n";
-    err = client->subscribe_trades(symbols, [](const lxdex::Trade& trade) {
+    err = client->subscribe_trades(symbols, [](const lx::Trade& trade) {
         print_trade(trade);
     });
     if (err) {
@@ -186,14 +186,14 @@ int main(int argc, char* argv[]) {
     if (client->is_authenticated()) {
         std::cout << "\nPlacing test order...\n";
 
-        lxdex::Order order;
+        lx::Order order;
         order.symbol = "BTC-USDT";
-        order.side = lxdex::Side::Buy;
-        order.type = lxdex::OrderType::Limit;
+        order.side = lx::Side::Buy;
+        order.type = lx::OrderType::Limit;
         order.price = 40000.0;
         order.size = 0.001;
-        order.time_in_force = lxdex::TimeInForce::GTC;
-        order.client_id = lxdex::Client::generate_client_id();
+        order.time_in_force = lx::TimeInForce::GTC;
+        order.client_id = lx::Client::generate_client_id();
 
         auto result = client->place_order(order);
         if (result.ok()) {

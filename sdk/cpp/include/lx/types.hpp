@@ -2,8 +2,8 @@
 // Copyright (c) 2025 Lux Partners Limited
 // SPDX-License-Identifier: MIT
 
-#ifndef LXDEX_TYPES_HPP
-#define LXDEX_TYPES_HPP
+#ifndef LX_TYPES_HPP
+#define LX_TYPES_HPP
 
 #include <cstdint>
 #include <string>
@@ -12,7 +12,7 @@
 #include <optional>
 #include <nlohmann/json.hpp>
 
-namespace lxdex {
+namespace lx {
 
 /// Order side
 enum class Side : int32_t {
@@ -371,6 +371,6 @@ inline void from_json(const nlohmann::json& j, NodeInfo& n) {
     if (j.contains("uptime")) j.at("uptime").get_to(n.uptime);
 }
 
-} // namespace lxdex
+} // namespace lx
 
-#endif // LXDEX_TYPES_HPP
+#endif // LX_TYPES_HPP

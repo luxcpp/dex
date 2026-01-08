@@ -43,8 +43,8 @@ make
 ### Options
 
 ```bash
-cmake -DLXDEX_BUILD_EXAMPLES=ON ..   # Build examples (default: ON)
-cmake -DLXDEX_BUILD_TESTS=ON ..      # Build tests (default: OFF)
+cmake -DLX_BUILD_EXAMPLES=ON ..   # Build examples (default: ON)
+cmake -DLX_BUILD_TESTS=ON ..      # Build tests (default: OFF)
 ```
 
 ## Usage
@@ -52,42 +52,42 @@ cmake -DLXDEX_BUILD_TESTS=ON ..      # Build tests (default: OFF)
 ### Basic Connection
 
 ```c
-#include "lxdex.h"
+#include "lx.h"
 
 int main(void) {
     // Initialize library
-    lxdex_init();
+    lx_init();
 
     // Configure client
-    lxdex_config_t config = {
+    lx_config_t config = {
         .ws_url = "ws://localhost:8081",
         .api_key = "your-api-key",
         .api_secret = "your-api-secret",
     };
 
     // Create client
-    lxdex_client_t *client = lxdex_client_new(&config);
+    lx_client_t *client = lx_client_new(&config);
     if (!client) return 1;
 
     // Set callbacks
-    lxdex_callbacks_t callbacks = {
+    lx_callbacks_t callbacks = {
         .on_connect = my_on_connect,
         .on_error = my_on_error,
         .on_orderbook = my_on_orderbook,
     };
-    lxdex_client_set_callbacks(client, &callbacks);
+    lx_client_set_callbacks(client, &callbacks);
 
     // Connect
-    lxdex_client_connect(client);
+    lx_client_connect(client);
 
     // Event loop
     while (running) {
-        lxdex_client_service(client, 100);
+        lx_client_service(client, 100);
     }
 
     // Cleanup
-    lxdex_client_free(client);
-    lxdex_cleanup();
+    lx_client_free(client);
+    lx_cleanup();
     return 0;
 }
 ```
@@ -96,39 +96,39 @@ int main(void) {
 
 ```c
 // Limit order
-lxdex_order_t order;
-lxdex_order_limit(&order, "BTC-USD", LXDEX_SIDE_BUY, 50000.0, 0.1);
+lx_order_t order;
+lx_order_limit(&order, "BTC-USD", LX_SIDE_BUY, 50000.0, 0.1);
 order.post_only = true;
 
 uint64_t order_id;
-lxdex_error_t err = lxdex_place_order(client, &order, &order_id);
-if (err != LXDEX_OK) {
-    fprintf(stderr, "Order failed: %s\n", lxdex_strerror(err));
+lx_error_t err = lx_place_order(client, &order, &order_id);
+if (err != LX_OK) {
+    fprintf(stderr, "Order failed: %s\n", lx_strerror(err));
 }
 
 // Market order
-lxdex_order_t market;
-lxdex_order_market(&market, "BTC-USD", LXDEX_SIDE_SELL, 0.05);
-lxdex_place_order(client, &market, NULL);
+lx_order_t market;
+lx_order_market(&market, "BTC-USD", LX_SIDE_SELL, 0.05);
+lx_place_order(client, &market, NULL);
 
 // Cancel
-lxdex_cancel_order(client, order_id);
+lx_cancel_order(client, order_id);
 ```
 
 ### Market Data Subscriptions
 
 ```c
 // Subscribe to orderbook
-lxdex_subscribe_orderbook(client, "BTC-USD");
+lx_subscribe_orderbook(client, "BTC-USD");
 
 // Subscribe to trades
-lxdex_subscribe_trades(client, "BTC-USD");
+lx_subscribe_trades(client, "BTC-USD");
 
 // Handle in callback
-void on_orderbook(lxdex_client_t *client, const lxdex_orderbook_t *book, void *user_data) {
+void on_orderbook(lx_client_t *client, const lx_orderbook_t *book, void *user_data) {
     printf("Best bid: %.2f, Best ask: %.2f\n",
-        lxdex_orderbook_best_bid(book),
-        lxdex_orderbook_best_ask(book));
+        lx_orderbook_best_bid(book),
+        lx_orderbook_best_ask(book));
 }
 ```
 
@@ -136,22 +136,22 @@ void on_orderbook(lxdex_client_t *client, const lxdex_orderbook_t *book, void *u
 
 ```c
 // Initialize local orderbook
-lxdex_orderbook_t book;
-lxdex_orderbook_init(&book, 100);
+lx_orderbook_t book;
+lx_orderbook_init(&book, 100);
 
 // Update from feed
-lxdex_orderbook_update_bid(&book, 50000.0, 1.5, 3);
-lxdex_orderbook_update_ask(&book, 50001.0, 0.8, 2);
+lx_orderbook_update_bid(&book, 50000.0, 1.5, 3);
+lx_orderbook_update_ask(&book, 50001.0, 0.8, 2);
 
 // Query
-double spread = lxdex_orderbook_spread(&book);
-double mid = lxdex_orderbook_mid(&book);
+double spread = lx_orderbook_spread(&book);
+double mid = lx_orderbook_mid(&book);
 
 // Calculate market impact
-double vwap = lxdex_orderbook_price_for_size(&book, LXDEX_SIDE_BUY, 10.0);
+double vwap = lx_orderbook_price_for_size(&book, LX_SIDE_BUY, 10.0);
 
 // Cleanup
-lxdex_orderbook_free(&book);
+lx_orderbook_free(&book);
 ```
 
 ## API Reference
@@ -160,79 +160,79 @@ lxdex_orderbook_free(&book);
 
 | Function | Description |
 |----------|-------------|
-| `lxdex_init()` | Initialize library (call once) |
-| `lxdex_cleanup()` | Cleanup library (call once) |
-| `lxdex_client_new(config)` | Create client |
-| `lxdex_client_set_callbacks(client, cb)` | Set event callbacks |
-| `lxdex_client_connect(client)` | Connect to DEX |
-| `lxdex_client_auth(client)` | Authenticate |
-| `lxdex_client_disconnect(client)` | Disconnect |
-| `lxdex_client_free(client)` | Free client |
-| `lxdex_client_state(client)` | Get connection state |
-| `lxdex_client_service(client, timeout_ms)` | Process events |
+| `lx_init()` | Initialize library (call once) |
+| `lx_cleanup()` | Cleanup library (call once) |
+| `lx_client_new(config)` | Create client |
+| `lx_client_set_callbacks(client, cb)` | Set event callbacks |
+| `lx_client_connect(client)` | Connect to DEX |
+| `lx_client_auth(client)` | Authenticate |
+| `lx_client_disconnect(client)` | Disconnect |
+| `lx_client_free(client)` | Free client |
+| `lx_client_state(client)` | Get connection state |
+| `lx_client_service(client, timeout_ms)` | Process events |
 
 ### Orders
 
 | Function | Description |
 |----------|-------------|
-| `lxdex_place_order(client, order, &id)` | Place order |
-| `lxdex_cancel_order(client, id)` | Cancel order |
-| `lxdex_modify_order(client, id, price, size)` | Modify order |
-| `lxdex_order_init(order)` | Initialize order struct |
-| `lxdex_order_limit(order, sym, side, price, size)` | Create limit order |
-| `lxdex_order_market(order, sym, side, size)` | Create market order |
+| `lx_place_order(client, order, &id)` | Place order |
+| `lx_cancel_order(client, id)` | Cancel order |
+| `lx_modify_order(client, id, price, size)` | Modify order |
+| `lx_order_init(order)` | Initialize order struct |
+| `lx_order_limit(order, sym, side, price, size)` | Create limit order |
+| `lx_order_market(order, sym, side, size)` | Create market order |
 
 ### Market Data
 
 | Function | Description |
 |----------|-------------|
-| `lxdex_subscribe_orderbook(client, symbol)` | Subscribe to orderbook |
-| `lxdex_subscribe_trades(client, symbol)` | Subscribe to trades |
-| `lxdex_unsubscribe(client, channel)` | Unsubscribe |
+| `lx_subscribe_orderbook(client, symbol)` | Subscribe to orderbook |
+| `lx_subscribe_trades(client, symbol)` | Subscribe to trades |
+| `lx_unsubscribe(client, channel)` | Unsubscribe |
 
 ### Orderbook Utilities
 
 | Function | Description |
 |----------|-------------|
-| `lxdex_orderbook_init(book, capacity)` | Initialize orderbook |
-| `lxdex_orderbook_free(book)` | Free orderbook |
-| `lxdex_orderbook_best_bid(book)` | Get best bid |
-| `lxdex_orderbook_best_ask(book)` | Get best ask |
-| `lxdex_orderbook_spread(book)` | Get spread |
-| `lxdex_orderbook_mid(book)` | Get mid price |
+| `lx_orderbook_init(book, capacity)` | Initialize orderbook |
+| `lx_orderbook_free(book)` | Free orderbook |
+| `lx_orderbook_best_bid(book)` | Get best bid |
+| `lx_orderbook_best_ask(book)` | Get best ask |
+| `lx_orderbook_spread(book)` | Get spread |
+| `lx_orderbook_mid(book)` | Get mid price |
 
 ### Error Handling
 
 | Function | Description |
 |----------|-------------|
-| `lxdex_strerror(err)` | Error code to string |
-| `lxdex_last_error()` | Get last error message |
+| `lx_strerror(err)` | Error code to string |
+| `lx_last_error()` | Get last error message |
 
 ## Error Codes
 
 | Code | Description |
 |------|-------------|
-| `LXDEX_OK` | Success |
-| `LXDEX_ERR_INVALID_ARG` | Invalid argument |
-| `LXDEX_ERR_NO_MEMORY` | Out of memory |
-| `LXDEX_ERR_CONNECTION` | Connection error |
-| `LXDEX_ERR_TIMEOUT` | Operation timed out |
-| `LXDEX_ERR_AUTH` | Authentication failed |
-| `LXDEX_ERR_PARSE` | JSON parse error |
-| `LXDEX_ERR_PROTOCOL` | Protocol error |
-| `LXDEX_ERR_RATE_LIMIT` | Rate limit exceeded |
-| `LXDEX_ERR_ORDER_REJECTED` | Order rejected |
-| `LXDEX_ERR_NOT_CONNECTED` | Not connected |
+| `LX_OK` | Success |
+| `LX_ERR_INVALID_ARG` | Invalid argument |
+| `LX_ERR_NO_MEMORY` | Out of memory |
+| `LX_ERR_CONNECTION` | Connection error |
+| `LX_ERR_TIMEOUT` | Operation timed out |
+| `LX_ERR_AUTH` | Authentication failed |
+| `LX_ERR_PARSE` | JSON parse error |
+| `LX_ERR_PROTOCOL` | Protocol error |
+| `LX_ERR_RATE_LIMIT` | Rate limit exceeded |
+| `LX_ERR_ORDER_REJECTED` | Order rejected |
+| `LX_ERR_NOT_CONNECTED` | Not connected |
 
 ## Connection States
 
 | State | Description |
 |-------|-------------|
-| `LXDEX_STATE_DISCONNECTED` | Not connected |
-| `LXDEX_STATE_CONNECTING` | Connection in progress |
-| `LXDEX_STATE_CONNECTED` | Connected, not authenticated |
-| `LXDEX_STATE_AUTHENTICATED` | Connected and authenticated |
-| `LXDEX_STATE_ERROR` | Error state |
+| `LX_STATE_DISCONNECTED` | Not connected |
+| `LX_STATE_CONNECTING` | Connection in progress |
+| `LX_STATE_CONNECTED` | Connected, not authenticated |
+| `LX_STATE_AUTHENTICATED` | Connected and authenticated |
+| `LX_STATE_ERROR` | Error state |
 
 ## Thread Safety
 
